@@ -1,81 +1,110 @@
 package com.example.chat_app;
 
-import android.os.AsyncTask;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.StrictMode;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
+
 import androidx.appcompat.app.AppCompatActivity;
-import java.io.*;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 
 public class MainActivity extends AppCompatActivity {
-    private EditText editTextMessage;
-    private TextView textViewChat;
+
+    private Socket socket;
     private PrintWriter out;
-    private ChatServer chatServer;
+    private BufferedReader in;
+    private LinearLayout messageLog;
+    private EditText editTextMessage;
+    private ScrollView scrollViewMessages;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        messageLog = findViewById(R.id.messageLog);
         editTextMessage = findViewById(R.id.editTextMessage);
-        textViewChat = findViewById(R.id.textViewChat);
+        scrollViewMessages = findViewById(R.id.scrollViewMessages);
         Button buttonSend = findViewById(R.id.buttonSend);
 
-        chatServer = new ChatServer();
-        new Thread(() -> chatServer.startServer(12345)).start(); // Jalankan server di thread terpisah
+        // Allow network operations on the main thread (not recommended for production)
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
 
-        buttonSend.setOnClickListener(v -> {
-            String message = editTextMessage.getText().toString();
-            sendMessage(message);
-            editTextMessage.setText("");
-        });
-
-        // Buat thread untuk menerima pesan
-        new Thread(this::receiveMessages).start();
-    }
-
-    private void sendMessage(final String message) {
-        new AsyncTask<Void, Void, Void>() {
+        // Start a new thread to connect to the server
+        new Thread(new Runnable() {
             @Override
-            protected Void doInBackground(Void... voids) {
-                if (out != null) {
-                    out.println(message);
-                    out.flush();
-                } else {
-                    Log.e("ChatApp", "Output stream tidak tersedia!");
+            public void run() {
+                try {
+                    // Connect to the server using the IP address and port
+                    socket = new Socket("10.0.2.2", 1212);  // Emulator IP for local server
+                    out = new PrintWriter(socket.getOutputStream(), true);
+                    in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+                    // Receive messages from the server
+                    String serverMessage;
+                    while ((serverMessage = in.readLine()) != null) {
+                        final String message = serverMessage;
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                addMessageToLog(message);
+                            }
+                        });
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-                return null;
             }
-        }.execute();
+        }).start();
+
+        // Set up the send button to send a message
+        buttonSend.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String clientMessage = editTextMessage.getText().toString();
+                if (!clientMessage.isEmpty()) {
+                    out.println(clientMessage);
+                    addMessageToLog("You: " + clientMessage);
+                    editTextMessage.setText("");
+                }
+            }
+        });
     }
 
-    private void receiveMessages() {
-        try {
-            // Ganti dengan alamat IP lokal komputer Anda
-            Socket socket = new Socket("127.0.0.1", 12345); // Ganti dengan IP komputer
-            Log.d("ChatApp", "Socket terhubung ke server");
+    // Method to add a message to the chat log
+    private void addMessageToLog(String message) {
+        TextView textView = new TextView(this);
+        textView.setText(message);
+        messageLog.addView(textView);
 
-            out = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-            String message;
-            while ((message = in.readLine()) != null) {
-                String finalMessage = message;
-                runOnUiThread(() -> textViewChat.append("Client: " + finalMessage + "\n"));
+        // Scroll to the bottom of the messages
+        scrollViewMessages.post(new Runnable() {
+            @Override
+            public void run() {
+                scrollViewMessages.fullScroll(View.FOCUS_DOWN);
             }
-        } catch (IOException e) {
-            Log.e("ChatApp", "Error saat mencoba terhubung: " + e.getMessage());
-        }
+        });
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        chatServer.stopServer(); // Hentikan server saat aplikasi dihentikan
+        try {
+            if (out != null) out.close();
+            if (in != null) in.close();
+            if (socket != null) socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
