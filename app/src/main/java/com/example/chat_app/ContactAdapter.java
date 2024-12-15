@@ -24,7 +24,6 @@ public class ContactAdapter extends CursorAdapter {
 
     @Override
     public void bindView(View view, Context context, Cursor cursor) {
-        // Bind name and phone number to the TextViews
         TextView nameTextView = view.findViewById(android.R.id.text1);
         TextView phoneTextView = view.findViewById(android.R.id.text2);
 

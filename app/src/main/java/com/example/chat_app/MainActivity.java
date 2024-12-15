@@ -2,6 +2,7 @@ package com.example.chat_app;
 
 import android.os.Bundle;
 import android.os.StrictMode;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -36,21 +37,17 @@ public class MainActivity extends AppCompatActivity {
         scrollViewMessages = findViewById(R.id.scrollViewMessages);
         Button buttonSend = findViewById(R.id.buttonSend);
 
-        // Allow network operations on the main thread (not recommended for production)
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
 
-        // Start a new thread to connect to the server
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
-                    // Connect to the server using the IP address and port
-                    socket = new Socket("10.0.2.2", 1212);  // Emulator IP for local server
+                    socket = new Socket("192.168.1.13", 1212);
                     out = new PrintWriter(socket.getOutputStream(), true);
                     in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-                    // Receive messages from the server
                     String serverMessage;
                     while ((serverMessage = in.readLine()) != null) {
                         final String message = serverMessage;
@@ -67,7 +64,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }).start();
 
-        // Set up the send button to send a message
         buttonSend.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -81,13 +77,25 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // Method to add a message to the chat log
     private void addMessageToLog(String message) {
         TextView textView = new TextView(this);
         textView.setText(message);
+        textView.setPadding(20, 10, 20, 10);
+
+        LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+
+        if (message.startsWith("You:")) {
+            layoutParams.gravity = Gravity.END;
+            textView.setBackgroundResource(R.drawable.bg_message_sent);
+        } else {
+            layoutParams.gravity = Gravity.START;
+            textView.setBackgroundResource(R.drawable.bg_message_received);
+        }
+
+        textView.setLayoutParams(layoutParams);
         messageLog.addView(textView);
 
-        // Scroll to the bottom of the messages
         scrollViewMessages.post(new Runnable() {
             @Override
             public void run() {

@@ -14,6 +14,7 @@ import android.widget.AdapterView;
 import android.content.Intent;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
@@ -29,42 +30,76 @@ public class ContactActivity extends AppCompatActivity {
 
         BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavigationView);
 
-        // Set up OnClickListener for each menu item
-        View navHome = bottomNavigationView.findViewById(R.id.nav_home);
-        View navContacts = bottomNavigationView.findViewById(R.id.nav_contacts);
-        View navCall = bottomNavigationView.findViewById(R.id.nav_call);
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragmentContainer, new ContactsFragment())
+                .commit();
 
-        navHome.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(ContactActivity.this, HomeActivity.class);
-                startActivity(intent);
-            }
-        });
+        bottomNavigationView.setOnItemSelectedListener(item -> {
+            Fragment selectedFragment = null;
 
-        navContacts.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                // Tetap di halaman Contact, lakukan apa pun yang perlu dilakukan
-                // Misalnya, memuat ulang atau memperbarui konten
-            }
-        });
-
-        navCall.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
+            if (item.getItemId() == R.id.nav_home) {
+                selectedFragment = new HomeFragment();
+                Intent homeIntent = new Intent(ContactActivity.this, HomeActivity.class);
+                startActivity(homeIntent);
+            } else if (item.getItemId() == R.id.nav_call) {
+                selectedFragment = new CallFragment();
                 if (selectedPhoneNumber != null) {
                     makeCall(selectedPhoneNumber);
                 } else {
                     Toast.makeText(ContactActivity.this, "Pilih nomor telepon", Toast.LENGTH_SHORT).show();
                 }
+            } else if (item.getItemId() == R.id.nav_contacts) {
+                selectedFragment = new ContactsFragment();
+                Intent contactsIntent = new Intent(ContactActivity.this, ContactActivity.class);
+                startActivity(contactsIntent);
             }
+
+            if (selectedFragment != null) {
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragmentContainer, selectedFragment)
+                        .commit();
+            }
+
+            return true;
         });
 
+//        BottomNavigationView bottomNavigationView = findViewById(R.id.bottomNavigationView);
+//
+//        // Set up OnClickListener for each menu item
+//        View navHome = bottomNavigationView.findViewById(R.id.nav_home);
+//        View navContacts = bottomNavigationView.findViewById(R.id.nav_contacts);
+//        View navCall = bottomNavigationView.findViewById(R.id.nav_call);
+//
+//        navHome.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                Intent intent = new Intent(ContactActivity.this, HomeActivity.class);
+//                startActivity(intent);
+//            }
+//        });
+//
+//        navContacts.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                // Tetap di halaman Contact, lakukan apa pun yang perlu dilakukan
+//                // Misalnya, memuat ulang atau memperbarui konten
+//            }
+//        });
+//
+//        navCall.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                if (selectedPhoneNumber != null) {
+//                    makeCall(selectedPhoneNumber);
+//                } else {
+//                    Toast.makeText(ContactActivity.this, "Pilih nomor telepon", Toast.LENGTH_SHORT).show();
+//                }
+//            }
+//        });
+//
         contactsListView = findViewById(R.id.contactsListView);
         //buttonCall = findViewById(R.id.buttonCall);
 
-        // Mendapatkan daftar kontak dan menampilkannya di ListView
         loadContacts();
 
         // Fungsi untuk membuka kontak dan melakukan panggilan
@@ -82,45 +117,38 @@ public class ContactActivity extends AppCompatActivity {
 //        });
     }
 
-    // Fungsi untuk mengambil kontak dari perangkat dan menampilkan di ListView
     private void loadContacts() {
-        // Mendapatkan data kontak dari ContentProvider
         Cursor cursor = getContentResolver().query(
                 ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                null, // Menampilkan semua kolom
-                null, // Tidak ada filter
+                null,
+                null,
                 null,
                 ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC"
         );
 
-        // Menggunakan custom adapter untuk menampilkan data kontak
         ContactAdapter adapter = new ContactAdapter(this, cursor);
         contactsListView.setAdapter(adapter);
 
-        // Menambahkan listener pada item yang dipilih di ListView
         contactsListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Cursor cursor = (Cursor) parent.getItemAtPosition(position);
                 @SuppressLint("Range") String phoneNumber = cursor.getString(cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER));
-                setSelectedPhoneNumber(phoneNumber); // Menyimpan nomor telepon yang dipilih
+                setSelectedPhoneNumber(phoneNumber);
             }
         });
     }
 
-    // Menyimpan nomor telepon yang dipilih
     private String selectedPhoneNumber = null;
 
     private void setSelectedPhoneNumber(String phoneNumber) {
         selectedPhoneNumber = phoneNumber;
     }
 
-    // Fungsi untuk mendapatkan nomor telepon yang dipilih
     private String getSelectedPhoneNumber() {
         return selectedPhoneNumber;
     }
 
-    // Fungsi untuk memulai panggilan menggunakan Intent
     private void makeCall(String phoneNumber) {
         Intent intent = new Intent(Intent.ACTION_CALL);
         intent.setData(Uri.parse("tel:" + phoneNumber));
